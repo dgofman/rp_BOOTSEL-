@@ -72,7 +72,7 @@ serial_baudrate = 115200  # Update the baud rate if needed
 
 ### COM Port Range
 
-- The script checks for available **COM** ports to connect to the **Raspberry Pi Pico**. By default, it checks ports from 1 to 15. You can adjust this range by modifying the following lines:
+- The script allows manual checking for available **COM** ports to connect to the **Raspberry Pi Pico** by setting **comAutoScan to False**. By default, it scans ports from 1 to 15. You can adjust this range by modifying the following lines:
 
 ```python
 initComPort = 3   # Minimum number of COM ports to check for device

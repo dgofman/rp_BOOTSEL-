@@ -3,6 +3,7 @@ import time
 import shutil
 import sys
 import shelve
+import winreg
 import serial # pip install pyserial
 import psutil # pip install psutil
 import win32api # pip install pywin32
@@ -12,6 +13,7 @@ serial_baudrate = 115200
 partitionName = "RPI-RP2"  # Name of the partition to look for
 initComPort = 3   # Minimum number of COM ports to check for device
 maxComPorts = 15  # Maximum number of COM ports to check for device
+comAutoScan = True # Auto scan COM ports
 
 # Shelve storage to remember the last used COM port
 storage_name = "flash_partition_shelve"
@@ -40,8 +42,8 @@ def get_com_and_partion(comPort):
     It stores the COM port in a shelve storage for future use.
     """
     try:
-        print(f"Opening serial connection on COM{comPort} ...")
-        serial.Serial(f"COM{comPort}", 1200, timeout=1)
+        print(f"Opening serial connection on {comPort} ...")
+        serial.Serial(f"{comPort}", 1200, timeout=1)
     except:
         # If the COM port cannot be opened, wait for 3 seconds before retrying
         time.sleep(3)
@@ -54,15 +56,34 @@ def get_com_and_partion(comPort):
             db[storage_key] = comPort
         return [comPort, partition]
 
-def wait_for_device_reconnect(timeout=30):
+def wait_for_device_reconnect():
     """
     This function waits for the Raspberry Pi Pico to reconnect by attempting to open
     serial connections on different COM ports within the range.
     """
     print("Waiting for Raspberry Pi Pico to reconnect...")
+    if comAutoScan:
+        try:
+            # Open the registry key
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DEVICEMAP\SERIALCOMM") as key:
+                i = 0
+                while True:
+                    try:
+                        # Enumerate each value under the key
+                        _, port, _ = winreg.EnumValue(key, i)
+                        data = get_com_and_partion(port)
+                        if data:
+                            return data
+                        i += 1
+                    except OSError:
+                        # No more values to enumerate
+                        break
+        except:
+            pass
+
     # Try to find the device by opening serial connections on each COM port
-    for comPort in range(initComPort, maxComPorts + 1):
-        data = get_com_and_partion(comPort)
+    for port in range(initComPort, maxComPorts + 1):
+        data = get_com_and_partion(f'COM{port}')
         if data:
             return data
     return None
@@ -100,8 +121,8 @@ def read_com(comPort):
         sys.exit(0)
 
     try:
-        print(f"Opening serial connection on COM{comPort} ...")
-        ser = serial.Serial(f"COM{comPort}", serial_baudrate, timeout=1)
+        print(f"Opening serial connection on {comPort} ...")
+        ser = serial.Serial(comPort, serial_baudrate, timeout=1)
         # Read data from the serial port
         while True:
             try:
