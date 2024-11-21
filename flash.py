@@ -61,7 +61,7 @@ def wait_for_device_reconnect(timeout=30):
     """
     print("Waiting for Raspberry Pi Pico to reconnect...")
     # Try to find the device by opening serial connections on each COM port
-    for comPort in range(initComPort, maxComPorts):
+    for comPort in range(initComPort, maxComPorts + 1):
         data = get_com_and_partion(comPort)
         if data:
             return data
