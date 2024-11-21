@@ -22,3 +22,11 @@ Build Information
 If the latest Picoprobe firmware does not work for you, you can try using the version from my repo.
 
 In **.vscode** changes allow you to use VSCode to compile, flash, and debug your program on the **Raspberry Pi Pico** across different projects.
+
+### Note:
+In the `.vscode/launch.json` file, specify the path to your OpenOCD `src` folders. For example:
+
+```json
+"searchDir": ["C:/openocd/tcl"]
+```
+Make sure the path points to the correct directory containing the necessary OpenOCD configuration files.
