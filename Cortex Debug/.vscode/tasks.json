@@ -1,0 +1,25 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Find ELF File",
+            "type": "shell",
+            "command": "Copy-Item -Path ${workspaceRoot}/build/*.elf -Destination ${workspaceRoot}/build/cortex_debug.elf -Exclude 'cortex_debug.elf' -Force",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "never",
+                "panel": "shared"
+            },
+            "options": {
+                "shell": {
+                    "executable": "powershell.exe",
+                    "args": ["-Command"]
+                }
+            }
+        }
+    ]
+}
