@@ -32,6 +32,7 @@ In the `.vscode/launch.json` file, specify the path to your OpenOCD `src` folder
 Make sure the path points to the correct directory containing the necessary OpenOCD configuration files.
 
 ### Links:
+https://sysprogs.com/files/auxiliary/openocd/com.sysprogs.arm.openocd/openocd-20211118.7z
 https://mcuoneclipse.com/2023/04/08/open-source-picolink-raspberry-pi-rp2040-cmsis-dap-debug-probe/
 https://mcuoneclipse.com/2022/09/17/picoprobe-using-the-raspberry-pi-pico-as-debug-probe/
 
