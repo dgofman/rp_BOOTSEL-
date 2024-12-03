@@ -1,21 +1,17 @@
 import os
-import re
 import time
 import shutil
 import sys
 import shelve
 import winreg
-import subprocess
 import serial # pip install pyserial
 import psutil # pip install psutil
 import win32api # pip install pywin32
 
 # Define the serial communication baudrate and other constants
 serial_baudrate = 115200 
-raspberryPiVID = "VID_2E8A" # Unique to Raspberry Pi Ltd.
-raspberryPiPID =  "PID_0004" # USB-to-UART bridges on Raspberry Pi boards.
 partitionName = "RPI-RP2"  # Name of the partition to look for
-initComPort = 3   # Minimum number of COM ports to check for device
+initComPort = 1   # Minimum number of COM ports to check for device
 maxComPorts = 15  # Maximum number of COM ports to check for device
 comAutoScan = True # Auto scan COM ports
 
@@ -39,14 +35,12 @@ def find_rpi_rp2_drive():
     
     return None
 
-def get_com_and_partition(comPort):
-    savePort = None
-    """Check if the given COM port is associated with a Raspberry Pi device using PowerShell."""
-    command = f'Get-WmiObject -Class Win32_PnPEntity | Where-Object {{$_.Name -match "{comPort}"}} | Format-List PNPDeviceID'
-    result = subprocess.run(["powershell", "-Command", command], capture_output=True, text=True)
-    if raspberryPiVID in result.stdout:
-        savePort = comPort
-
+def get_com_and_partion(comPort):
+    """
+    This function attempts to open a serial connection on a given COM port and 
+    finds the RPI-RP2 partition if available.
+    It stores the COM port in a shelve storage for future use.
+    """
     try:
         print(f"Opening serial connection on {comPort} ...")
         serial.Serial(f"{comPort}", 1200, timeout=1)
@@ -57,52 +51,7 @@ def get_com_and_partition(comPort):
     # Try to find the RPI-RP2 drive partition
     partition = find_rpi_rp2_drive()
     if partition:
-        # Store the COM port in shelve storage for later use
-        with shelve.open(storage_name) as db:
-            db[storage_key] = savePort
         return [comPort, partition]
-
-def is_raspberry_pi_com():
-    command = f"""
-    $raspberryPiVID = "{raspberryPiVID}"
-    Get-WmiObject -Class Win32_PnPEntity | Where-Object {{ $_.PNPClass -eq "Ports" }} | ForEach-Object {{
-        if ($_.DeviceID -match $raspberryPiVID) {{
-            Write-Output $_.Name
-        }}
-    }}
-    """
-    try:
-        # Execute PowerShell command
-        result = subprocess.run(["powershell", "-Command", command], capture_output=True, text=True)
-        out = result.stdout.strip()
-        match = re.search(r"COM(\d+)", out)
-        if match:
-            port = match.group(1)
-            data = get_com_and_partition(f'COM{port}')
-            if data:
-                return data
-    except Exception as e:
-        print(f"An error occurred: {e}")
-    return None
-
-def find_raspberry_pi_com():
-    try:
-        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DEVICEMAP\SERIALCOMM") as key:
-            i = 0
-            while True:
-                try:
-                    # Enumerate each value under the key
-                    _, port, _ = winreg.EnumValue(key, i)
-                    data = get_com_and_partition(port)
-                    if data:
-                        return data
-                    i += 1
-                except OSError:
-                    # No more values to enumerate
-                    break
-    except FileNotFoundError:
-        print("Registry key not found.")
-    return None
 
 def wait_for_device_reconnect():
     """
@@ -111,14 +60,31 @@ def wait_for_device_reconnect():
     """
     print("Waiting for Raspberry Pi Pico to reconnect...")
     if comAutoScan:
-        data = is_raspberry_pi_com() or find_raspberry_pi_com()
-        if data:
-            return data
+        try:
+            # Open the registry key
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DEVICEMAP\SERIALCOMM") as key:
+                i = 0
+                while True:
+                    try:
+                        # Enumerate each value under the key
+                        _, port, _ = winreg.EnumValue(key, i)
+                        data = get_com_and_partion(port)
+                        if data:
+                            return data
+                        i += 1
+                    except OSError:
+                        # No more values to enumerate
+                        break
+        except:
+            pass
 
     # Try to find the device by opening serial connections on each COM port
     for port in range(initComPort, maxComPorts + 1):
-        data = get_com_and_partition(f'COM{port}')
+        data = get_com_and_partion(f'COM{port}')
         if data:
+            # Store the COM port in shelve storage for later use
+            with shelve.open(storage_name) as db:
+                db[storage_key] = data[0]
             return data
     return None
 
@@ -127,21 +93,24 @@ def copyFile(partition):
     This function copies a file (specified in command-line arguments) to the given partition.
     It also checks if the file exists and prints the file size before copying.
     """
-    file_path = sys.argv[1]
-    try:
-        # Get the file size and print it
-        file_size = os.path.getsize(file_path)
-        print(f"Copying file {file_path} to {partition}. File size: {file_size} bytes")
-        
-        # Copy the file to the RPI-RP2 device
-        shutil.copy(file_path, partition)
-        print("File copied successfully.")
-        print(f"Wait connecting to {partition} ({partitionName}) ...")
-        time.sleep(5)
-    except Exception as e:
-        # If an error occurs during file copy, print the error
-        print(f"Error copying file: {e}")
-            
+    if len(sys.argv) > 1:
+        file_path = sys.argv[1]
+        if os.path.exists(file_path):
+            try:
+                # Get the file size and print it
+                file_size = os.path.getsize(file_path)
+                print(f"Copying file {file_path} to {partition}. File size: {file_size} bytes")
+                
+                # Copy the file to the RPI-RP2 device
+                shutil.copy(file_path, partition)
+                print("File copied successfully.")
+                print(f"Wait connecting to {partition} ({partitionName}) ...")
+                time.sleep(5)
+            except Exception as e:
+                # If an error occurs during file copy, print the error
+                print(f"Error copying file: {e}")
+        else:
+            print(f"File '{file_path}' not found.")
 
 def read_com(comPort):
     """
@@ -161,27 +130,22 @@ def read_com(comPort):
                 data = ser.readline()
                 if data:
                     print(data.decode('utf-8').strip())  # Print the received data after decoding it
-            except:
+            except (KeyboardInterrupt, serial.SerialException) as e:
                 # Ctrl+C, exit the loop
                 sys.exit(0)
+            except Exception as e:
+                print(e)
     except Exception as e:
         # If there is an error opening the serial port, print the exception
         print(e)
 
 # Main function to handle the logic of connecting to the Raspberry Pi Pico and copying files
 def main():
-    if len(sys.argv) > 1:
-        file_path = sys.argv[1]
-        if not os.path.exists(file_path):
-            print(f"Error: The file '{file_path}' does not exist. Please check the path and try again.")
-            sys.exit(1)
-    else:
-        print("Error: No file argument provided. Please provide the file path as an argument.")
-        sys.exit(2)
-
+    comPort = None
     # Open shelve storage to get the last used COM port
-    with shelve.open(storage_name) as db:
-        comPort = db.get(storage_key, None)
+    if os.path.exists(storage_name):
+        with shelve.open(storage_name, flag='r') as db:  # Open in read-only mode
+            comPort = db.get(storage_key, None)  # Read the value for storage_key, or None if not found
 
     # Attempt to find the RPI-RP2 partition on the system
     partition = find_rpi_rp2_drive()
@@ -198,7 +162,7 @@ def main():
     # If no partition was found earlier, try to get the device again
     data = None
     if comPort:
-        data = get_com_and_partition(comPort)
+        data = get_com_and_partion(comPort)
     
     if not data:
         # Wait for the device to reconnect if no data was found
