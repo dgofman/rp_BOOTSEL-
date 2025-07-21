@@ -29,7 +29,26 @@ To install the required Python packages, run the following command:
 pip install pyserial psutil pywin32
 ```
 
-## Steps
+## Flash the Raspberry Pi Pico using UF2 file
+
+To flash the Raspberry Pi Pico with the `.uf2` file, ensure that the following steps are followed correctly.
+
+**CMake Configuration (USB Setup)**
+In your `CMakeLists.txt` file, enable USB functionality so the Pico can communicate over USB. This step is important for flashing and debugging.
+Ensure these lines are present in your CMakeLists.txt:
+```cmake
+# Set the name of your project
+set(PROJECT_NAME YOUR_PROJECT_NAME)
+
+# Enable USB for flashing and debugging (standard)
+pico_enable_stdio_usb(${PROJECT_NAME} 1)
+
+# Optionally enable UART for additional serial communication (if needed)
+pico_enable_stdio_uart(${PROJECT_NAME} 1)
+```
+- `pico_enable_stdio_usb(${PROJECT_NAME} 1)`: This enables USB functionality for both communication and flashing the Pico via UF2.
+- `pico_enable_stdio_uart(${PROJECT_NAME} 1)`: This is optional, and should only be used if you want to use UART for serial communication in addition to USB.
+- Replace `YOUR_PROJECT_NAME` with the actual name of your project.
 
 - Download **flash.py** to your working directory.
 
